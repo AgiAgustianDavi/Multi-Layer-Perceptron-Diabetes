@@ -1,7 +1,10 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+import numpy as np
 from sklearn.preprocessing import StandardScaler
-from sklearn.neural_network import MLPClassifier
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import load_model
 import joblib
 
 # Load PIMA dataset
@@ -10,11 +13,26 @@ df = pd.read_csv("pima_diabetes.csv")
 X = df.drop("Outcome", axis=1)
 y = df["Outcome"]
 
+# Normalisasi
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-model = MLPClassifier(hidden_layer_sizes=(100,), max_iter=200, learning_rate_init=0.001, random_state=42)
-model.fit(X_scaled, y)
+# Buat model MLP di TensorFlow
+model = Sequential([
+    Dense(16, input_shape=(X_scaled.shape[1],), activation='relu'),
+    Dense(8, activation='relu'),
+    Dense(1, activation='sigmoid')   # Output layer sigmoid untuk klasifikasi biner
+])
 
-joblib.dump({"model": model, "scaler": scaler, "features": X.columns.tolist()}, "mlp_model.pkl")
-print("Model default berhasil disimpan sebagai mlp_model.pkl")
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+              loss='binary_crossentropy',
+              metrics=['accuracy'])
+
+# Latih model
+model.fit(X_scaled, y, epochs=50, batch_size=16, verbose=1)
+
+# Simpan model TensorFlow (.h5) dan scaler (.pkl)
+model.save("pretrained/mlp_model_tf.h5")
+joblib.dump({"scaler": scaler, "features": X.columns.tolist()}, "pretrained/mlp_model_meta.pkl")
+
+print("Model TensorFlow berhasil disimpan sebagai mlp_model_tf.h5 dan mlp_model_meta.pkl")
