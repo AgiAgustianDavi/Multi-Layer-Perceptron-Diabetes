@@ -41,7 +41,7 @@ def train_model_tf(X, y, hidden_layers, activations, max_iter, learning_rate):
 
     return model, scaler, history, y_test, y_pred
 
-# Halaman utama
+# Sidebar Navigasi
 st.sidebar.title("Navigasi")
 page = st.sidebar.radio("Pilih halaman:", ["Training Model", "Coba Model"])
 
@@ -78,58 +78,74 @@ if page == "Training Model":
 
                     model, scaler, history, y_test, y_pred = train_model_tf(X, y, hidden_layers, activations, max_iter, learning_rate)
 
+                    # Simpan ke session_state
+                    st.session_state["model"] = model
+                    st.session_state["scaler"] = scaler
+                    st.session_state["feature_columns"] = feature_columns
+                    st.session_state["history"] = history
+                    st.session_state["y_test"] = y_test
+                    st.session_state["y_pred"] = y_pred
+
                 st.success("Training selesai!")
 
-                # Plot loss & accuracy
-                hist_df = pd.DataFrame(history.history)
-                fig, ax = plt.subplots(1, 2, figsize=(12, 4))
-                ax[0].plot(hist_df["loss"], label="Train Loss")
-                ax[0].plot(hist_df["val_loss"], label="Val Loss")
-                ax[0].set_title("Loss Curve")
-                ax[0].legend()
+    # Menampilkan hasil training jika sudah ada di session
+    if "model" in st.session_state:
+        history = st.session_state["history"]
+        y_test = st.session_state["y_test"]
+        y_pred = st.session_state["y_pred"]
 
-                ax[1].plot(hist_df["accuracy"], label="Train Acc")
-                ax[1].plot(hist_df["val_accuracy"], label="Val Acc")
-                ax[1].set_title("Accuracy Curve")
-                ax[1].legend()
+        # Plot loss & accuracy
+        hist_df = pd.DataFrame(history.history)
+        fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+        ax[0].plot(hist_df["loss"], label="Train Loss")
+        ax[0].plot(hist_df["val_loss"], label="Val Loss")
+        ax[0].set_title("Loss Curve")
+        ax[0].legend()
 
-                st.pyplot(fig)
+        ax[1].plot(hist_df["accuracy"], label="Train Acc")
+        ax[1].plot(hist_df["val_accuracy"], label="Val Acc")
+        ax[1].set_title("Accuracy Curve")
+        ax[1].legend()
 
-                st.write(f"**Akurasi Akhir (Testing):** {history.history['val_accuracy'][-1]:.4f}")
-                st.write(f"**Loss Akhir (Testing):** {history.history['val_loss'][-1]:.4f}")
+        st.pyplot(fig)
 
-                # Confusion matrix
-                cm = confusion_matrix(y_test, y_pred)
-                st.subheader("Confusion Matrix")
-                fig_cm, ax_cm = plt.subplots()
-                sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax_cm)
-                ax_cm.set_xlabel("Predicted")
-                ax_cm.set_ylabel("True")
-                st.pyplot(fig_cm)
+        st.write(f"**Akurasi Akhir (Testing):** {history.history['val_accuracy'][-1]:.4f}")
+        st.write(f"**Loss Akhir (Testing):** {history.history['val_loss'][-1]:.4f}")
 
-                # Hasil prediksi vs label asli
-                st.subheader("Hasil Prediksi vs Label Asli (Data Uji)")
-                result_df = pd.DataFrame({"Label Asli": y_test, "Prediksi": y_pred}).reset_index(drop=True)
-                st.dataframe(result_df)
+        # Confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        st.subheader("Confusion Matrix")
+        fig_cm, ax_cm = plt.subplots()
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax_cm)
+        ax_cm.set_xlabel("Predicted")
+        ax_cm.set_ylabel("True")
+        st.pyplot(fig_cm)
 
-                # Download model
-                # Download model
-                st.subheader("Download Model dan Scaler")
+        # Hasil prediksi vs label asli
+        st.subheader("Hasil Prediksi vs Label Asli (Data Uji)")
+        result_df = pd.DataFrame({"Label Asli": y_test, "Prediksi": y_pred}).reset_index(drop=True)
+        st.dataframe(result_df)
 
-                # Simpan model ke memori
-                with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as tmp_model:
-                    model.save(tmp_model.name)
-                    tmp_model.seek(0)
-                    model_data = tmp_model.read()
+        # Download model dan scaler
+        st.subheader("Download Model dan Scaler")
 
-                st.download_button("Download Model (.h5)", model_data, file_name="mlp_tf_model.h5")
+        # Simpan model ke file sementara
+        with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as tmp_model:
+            st.session_state["model"].save(tmp_model.name)
+            tmp_model.seek(0)
+            model_data = tmp_model.read()
 
+        st.download_button("Download Model (.h5)", model_data, file_name="mlp_tf_model.h5")
 
-                # Simpan scaler dan fitur ke memori
-                scaler_buffer = io.BytesIO()
-                joblib.dump({"scaler": scaler, "features": feature_columns}, scaler_buffer)
-                scaler_buffer.seek(0)
-                st.download_button("Download Scaler + Features (.pkl)", scaler_buffer, file_name="scaler_features.pkl")
+        # Simpan scaler + features ke buffer
+        scaler_buffer = io.BytesIO()
+        joblib.dump({
+            "scaler": st.session_state["scaler"],
+            "features": st.session_state["feature_columns"]
+        }, scaler_buffer)
+        scaler_buffer.seek(0)
+
+        st.download_button("Download Scaler + Features (.pkl)", scaler_buffer, file_name="scaler_features.pkl")
 
 elif page == "Coba Model":
     st.title("Coba Model yang Sudah Dilatih")
@@ -151,7 +167,7 @@ elif page == "Coba Model":
             with open(scaler_path, "rb") as f:
                 model_dict = joblib.load(f)
             st.info("Model dan scaler default berhasil dimuat!")
-        
+
         scaler = model_dict["scaler"]
         features = model_dict["features"]
 
@@ -170,4 +186,3 @@ elif page == "Coba Model":
 
     except Exception as e:
         st.error(f"Gagal memuat model: {e}")
-
