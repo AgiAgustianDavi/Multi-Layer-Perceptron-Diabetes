@@ -157,32 +157,37 @@ elif page == "Coba Model":
     model_path = "pretrained/mlp_model_tf.h5"
     scaler_path = "pretrained/mlp_model_meta.pkl"
 
-    try:
-        if uploaded_model and uploaded_scaler:
-            model = tf.keras.models.load_model(uploaded_model)
-            model_dict = joblib.load(uploaded_scaler)
-            st.success("Model dan scaler berhasil dimuat dari upload!")
-        else:
-            model = tf.keras.models.load_model(model_path)
-            with open(scaler_path, "rb") as f:
-                model_dict = joblib.load(f)
-            st.info("Model dan scaler default berhasil dimuat!")
+try:
+    if uploaded_model and uploaded_scaler:
+        # Simpan uploaded_model ke file sementara
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".h5") as tmp_model_file:
+            tmp_model_file.write(uploaded_model.read())
+            tmp_model_file_path = tmp_model_file.name
 
-        scaler = model_dict["scaler"]
-        features = model_dict["features"]
+        model = tf.keras.models.load_model(tmp_model_file_path)
+        model_dict = joblib.load(uploaded_scaler)
+        st.success("Model dan scaler berhasil dimuat dari upload!")
+    else:
+        model = tf.keras.models.load_model(model_path)
+        with open(scaler_path, "rb") as f:
+            model_dict = joblib.load(f)
+        st.info("Model dan scaler default berhasil dimuat!")
 
-        st.subheader("Masukkan Data untuk Prediksi:")
-        input_data = {}
-        for feat in features:
-            input_data[feat] = st.number_input(f"{feat}:", value=0.0)
+    scaler = model_dict["scaler"]
+    features = model_dict["features"]
 
-        input_df = pd.DataFrame([input_data])
-        input_scaled = scaler.transform(input_df)
-        prediction_prob = model.predict(input_scaled)[0][0]
-        prediction = int(prediction_prob > 0.5)
+    st.subheader("Masukkan Data untuk Prediksi:")
+    input_data = {}
+    for feat in features:
+        input_data[feat] = st.number_input(f"{feat}:", value=0.0)
 
-        st.subheader("Hasil Prediksi:")
-        st.write(f"Model memprediksi: **{prediction}** (Probabilitas: {prediction_prob:.4f})")
+    input_df = pd.DataFrame([input_data])
+    input_scaled = scaler.transform(input_df)
+    prediction_prob = model.predict(input_scaled)[0][0]
+    prediction = int(prediction_prob > 0.5)
 
-    except Exception as e:
-        st.error(f"Gagal memuat model: {e}")
+    st.subheader("Hasil Prediksi:")
+    st.write(f"Model memprediksi: **{prediction}** (Probabilitas: {prediction_prob:.4f})")
+
+except Exception as e:
+    st.error(f"Gagal memuat model: {e}")
