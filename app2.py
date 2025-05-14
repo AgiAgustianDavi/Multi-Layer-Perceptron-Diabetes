@@ -6,6 +6,7 @@ import seaborn as sns
 import joblib
 import tensorflow as tf
 import io
+import tempfile
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.preprocessing import StandardScaler
@@ -116,10 +117,13 @@ if page == "Training Model":
                 st.subheader("Download Model dan Scaler")
 
                 # Simpan model ke memori
-                model_buffer = io.BytesIO()
-                model.save(model_buffer, save_format="h5")
-                model_buffer.seek(0)
-                st.download_button("Download Model (.h5)", model_buffer, file_name="mlp_tf_model.h5")
+                with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as tmp_model:
+                    model.save(tmp_model.name)
+                    tmp_model.seek(0)
+                    model_data = tmp_model.read()
+
+                st.download_button("Download Model (.h5)", model_data, file_name="mlp_tf_model.h5")
+
 
                 # Simpan scaler dan fitur ke memori
                 scaler_buffer = io.BytesIO()
